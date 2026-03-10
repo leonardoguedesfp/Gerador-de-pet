@@ -14,6 +14,7 @@ def gerar_relatorio_conferencia(
     caminho: Path,
     log: Logger,
     colunas_extras: list[str] | None = None,
+    nome_execucao: str = "",
 ) -> None:
     """
     Gera planilha Excel de conferência com o resultado de cada petição.
@@ -100,11 +101,14 @@ def gerar_relatorio_conferencia(
 
     ws.cell(row=row_resumo, column=1, value="RESUMO").font = Font(
         name="Arial", size=11, bold=True)
-    resumo = [
+    resumo = []
+    if nome_execucao:
+        resumo.append(("Execução:", nome_execucao))
+    resumo.extend([
         ("Petições geradas com sucesso:", total_ok),
         ("Registros com erro/aviso:", total_erros),
         ("Total de registros:", len(resultados)),
-    ]
+    ])
     for offset, (label, val) in enumerate(resumo, start=1):
         ws.cell(row=row_resumo + offset, column=1, value=label).font = Font(name="Arial", size=10)
         ws.cell(row=row_resumo + offset, column=2, value=val).font = Font(

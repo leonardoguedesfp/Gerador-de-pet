@@ -13,45 +13,8 @@ from .planilha import ler_planilha
 from .relatorio import gerar_relatorio_conferencia
 
 
-def _autodetectar_arquivo(
-    diretorio: Path, extensao: str, palavra_chave: str,
-) -> str | None:
-    """Busca um arquivo pela extensão e palavra-chave no nome.
-
-    Retorna o nome do arquivo encontrado ou None se não houver correspondência
-    única.
-    """
-    candidatos = [
-        f for f in diretorio.iterdir()
-        if f.suffix.lower() == extensao
-        and palavra_chave in f.stem.lower()
-        and not f.name.startswith("~$")
-    ]
-    if len(candidatos) == 1:
-        return candidatos[0].name
-    return None
-
-
 def _verificar_entrada(cfg: Config) -> None:
-    """Verifica se os arquivos de entrada existem, com autodetecção."""
-    # Autodetectar planilha se não encontrada
-    if not cfg.planilha_path.exists() and cfg.dir_entrada.is_dir():
-        detectado = _autodetectar_arquivo(cfg.dir_entrada, ".xlsx", "dados")
-        if detectado:
-            cfg.arquivo_planilha = detectado
-
-    # Autodetectar modelo masculino se não encontrado
-    if not cfg.modelo_m_path.exists() and cfg.dir_entrada.is_dir():
-        detectado = _autodetectar_arquivo(cfg.dir_entrada, ".docx", "masculin")
-        if detectado:
-            cfg.modelo_masculino = detectado
-
-    # Autodetectar modelo feminino se não encontrado
-    if not cfg.modelo_f_path.exists() and cfg.dir_entrada.is_dir():
-        detectado = _autodetectar_arquivo(cfg.dir_entrada, ".docx", "feminin")
-        if detectado:
-            cfg.modelo_feminino = detectado
-
+    """Verifica se os arquivos de entrada existem."""
     faltando = []
     for path, desc in [
         (cfg.planilha_path, "Planilha"),
@@ -143,11 +106,21 @@ def executar(cfg: Config) -> int:
         log.info("=" * 65)
         log.info("")
 
+        if cfg.nome_execucao:
+            log.info(f"Execução: {cfg.nome_execucao}")
+        log.info(f"Pasta de entrada: {cfg.dir_entrada.resolve()}")
+        log.info(f"Pasta de saída:   {cfg.dir_saida.resolve()}")
+        log.info("")
+
         try:
             _verificar_entrada(cfg)
         except ArquivoNaoEncontradoError as e:
             log.erro(str(e))
-            log.info(f"\nCertifique-se de que os arquivos estão na pasta '{cfg.dir_entrada}'")
+            log.info(
+                "\nCertifique-se de que os arquivos 'dados_clientes.xlsx', "
+                "'modelo_masculino.docx' e 'modelo_feminino.docx' "
+                f"estão na pasta '{cfg.dir_entrada}'"
+            )
             return 1
 
         log.info(f"Lendo planilha: {cfg.planilha_path.name}")
@@ -212,7 +185,8 @@ def executar(cfg: Config) -> int:
         caminho_relatorio = cfg.dir_saida / "relatorio_conferencia.xlsx"
         try:
             gerar_relatorio_conferencia(
-                resultados, caminho_relatorio, log, cfg.colunas_relatorio,
+                resultados, caminho_relatorio, log,
+                cfg.colunas_relatorio, cfg.nome_execucao,
             )
         except Exception as e:
             log.erro(f"Erro ao gerar relatório de conferência: {e}")

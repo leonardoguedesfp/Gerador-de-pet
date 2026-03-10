@@ -10,9 +10,7 @@ class Config:
 
     dir_entrada: Path = Path("entrada")
     dir_saida: Path = Path("saida")
-    arquivo_planilha: str = "dados_clientes.xlsx"
-    modelo_masculino: str = "modelo_masculino.docx"
-    modelo_feminino: str = "modelo_feminino.docx"
+    nome_execucao: str = ""
     coluna_genero: str = "Genero"
     coluna_nome: str = "Nome"
     prefixo_arquivo: str = "Peticao"
@@ -24,12 +22,12 @@ class Config:
 
     @property
     def planilha_path(self) -> Path:
-        return self.dir_entrada / self.arquivo_planilha
+        return self.dir_entrada / "dados_clientes.xlsx"
 
     @property
     def modelo_m_path(self) -> Path:
-        return self.dir_entrada / self.modelo_masculino
+        return self.dir_entrada / "modelo_masculino.docx"
 
     @property
     def modelo_f_path(self) -> Path:
-        return self.dir_entrada / self.modelo_feminino
+        return self.dir_entrada / "modelo_feminino.docx"
