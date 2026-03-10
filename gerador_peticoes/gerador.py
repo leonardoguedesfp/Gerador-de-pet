@@ -13,8 +13,45 @@ from .planilha import ler_planilha
 from .relatorio import gerar_relatorio_conferencia
 
 
+def _autodetectar_arquivo(
+    diretorio: Path, extensao: str, palavra_chave: str,
+) -> str | None:
+    """Busca um arquivo pela extensão e palavra-chave no nome.
+
+    Retorna o nome do arquivo encontrado ou None se não houver correspondência
+    única.
+    """
+    candidatos = [
+        f for f in diretorio.iterdir()
+        if f.suffix.lower() == extensao
+        and palavra_chave in f.stem.lower()
+        and not f.name.startswith("~$")
+    ]
+    if len(candidatos) == 1:
+        return candidatos[0].name
+    return None
+
+
 def _verificar_entrada(cfg: Config) -> None:
-    """Verifica se os arquivos de entrada existem."""
+    """Verifica se os arquivos de entrada existem, com autodetecção."""
+    # Autodetectar planilha se não encontrada
+    if not cfg.planilha_path.exists() and cfg.dir_entrada.is_dir():
+        detectado = _autodetectar_arquivo(cfg.dir_entrada, ".xlsx", "dados")
+        if detectado:
+            cfg.arquivo_planilha = detectado
+
+    # Autodetectar modelo masculino se não encontrado
+    if not cfg.modelo_m_path.exists() and cfg.dir_entrada.is_dir():
+        detectado = _autodetectar_arquivo(cfg.dir_entrada, ".docx", "masculin")
+        if detectado:
+            cfg.modelo_masculino = detectado
+
+    # Autodetectar modelo feminino se não encontrado
+    if not cfg.modelo_f_path.exists() and cfg.dir_entrada.is_dir():
+        detectado = _autodetectar_arquivo(cfg.dir_entrada, ".docx", "feminin")
+        if detectado:
+            cfg.modelo_feminino = detectado
+
     faltando = []
     for path, desc in [
         (cfg.planilha_path, "Planilha"),

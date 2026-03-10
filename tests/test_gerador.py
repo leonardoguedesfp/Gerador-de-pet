@@ -87,6 +87,23 @@ class TestExecutar:
         result = executar(cfg)
         assert result == 1
 
+    def test_autodetectar_planilha_nome_diferente(self, tmp_path):
+        entrada = tmp_path / "entrada"
+        saida = tmp_path / "saida"
+        entrada.mkdir()
+
+        _criar_modelo(entrada / "modelo_masculino.docx")
+        _criar_modelo(entrada / "modelo_feminino.docx")
+        _criar_planilha(entrada / "dados_clientes_1.xlsx", [
+            {"Nome": "João", "Genero": "M"},
+        ])
+
+        cfg = Config(dir_entrada=entrada, dir_saida=saida)
+        result = executar(cfg)
+
+        assert result == 0
+        assert (saida / "Peticao - João.docx").exists()
+
     def test_workers_paralelo(self, tmp_path):
         entrada = tmp_path / "entrada"
         saida = tmp_path / "saida"
