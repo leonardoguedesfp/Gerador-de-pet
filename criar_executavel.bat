@@ -4,13 +4,14 @@ echo   Criando executavel do Gerador de Peticoes...
 echo ============================================================
 echo.
 
-pip install pyinstaller python-docx openpyxl
-
+echo Instalando dependencias...
+python -m pip install pyinstaller python-docx openpyxl
 echo.
+
 echo Gerando executavel...
 echo.
 
-pyinstaller --noconfirm --onefile --windowed --name "Gerador de Peticoes" --icon NONE executavel.py
+python -m PyInstaller --noconfirm --onefile --windowed --name "Gerador de Peticoes" executavel.py
 
 echo.
 echo ============================================================
