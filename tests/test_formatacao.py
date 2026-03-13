@@ -1,6 +1,7 @@
 """Testes para o módulo de formatação."""
 
 from datetime import datetime, date
+from unittest.mock import patch
 
 import pytest
 
@@ -12,6 +13,7 @@ from gerador_peticoes.formatacao import (
     formatar_preservacoes,
     formatar_lista_processos,
     humanizar_registro,
+    derivar_variaveis,
 )
 
 
@@ -167,3 +169,127 @@ class TestHumanizarRegistro:
         resultado = humanizar_registro(reg)
         assert resultado["Campo"] == ""
         assert resultado["Outro"] == "  "
+
+
+class TestDerivarVariaveis:
+    @patch("gerador_peticoes.formatacao.datetime")
+    def test_data_peticao_gerada(self, mock_dt):
+        mock_dt.now.return_value = datetime(2026, 3, 13)
+        mock_dt.side_effect = lambda *a, **k: datetime(*a, **k)
+        reg = {"Nome": "João", "Genero": "M"}
+        resultado = derivar_variaveis(reg)
+        assert resultado["DataPeticao"] == "13/03/2026"
+
+    def test_lista_preservacoes_de_preservacao_sp(self):
+        reg = {"PreservacaoSP": "07/2012,R$7.487,54"}
+        resultado = derivar_variaveis(reg)
+        assert resultado["ListaPreservacoes"] == (
+            "em julho de 2012, no valor de R$ 7.487,54"
+        )
+        # Coluna original também é humanizada
+        assert resultado["PreservacaoSP"] == (
+            "em julho de 2012, no valor de R$ 7.487,54"
+        )
+
+    def test_lista_preservacoes_multiplas(self):
+        reg = {"PreservacaoSP": "3/2013,R$6.622,33;8/2014,R$9.418,28"}
+        resultado = derivar_variaveis(reg)
+        assert "março de 2013" in resultado["ListaPreservacoes"]
+        assert "agosto de 2014" in resultado["ListaPreservacoes"]
+
+    def test_lista_preservacoes_vazia_quando_sem_preservacao(self):
+        reg = {"Nome": "João"}
+        resultado = derivar_variaveis(reg)
+        assert resultado["ListaPreservacoes"] == ""
+
+    def test_lista_preservacoes_vazia_quando_preservacao_vazia(self):
+        reg = {"PreservacaoSP": ""}
+        resultado = derivar_variaveis(reg)
+        assert resultado["ListaPreservacoes"] == ""
+
+    def test_lista_rts_de_rt_indenizatoria(self):
+        reg = {"RT_Indenizatoria": "0000001-61.2022.5.10.0017"}
+        resultado = derivar_variaveis(reg)
+        assert resultado["ListaRTs"] == "0000001-61.2022.5.10.0017"
+        assert resultado["ListaRTsComDoc"] == "0000001-61.2022.5.10.0017"
+
+    def test_lista_rts_multiplas(self):
+        reg = {
+            "RT_Indenizatoria": (
+                "0000001-61.2022.5.10.0017;0000443-05.2023.5.10.0013"
+            ),
+        }
+        resultado = derivar_variaveis(reg)
+        assert resultado["ListaRTs"] == (
+            "0000001-61.2022.5.10.0017 e nº 0000443-05.2023.5.10.0013"
+        )
+
+    def test_lista_rts_vazia_sem_coluna(self):
+        reg = {"Nome": "João"}
+        resultado = derivar_variaveis(reg)
+        assert resultado["ListaRTs"] == ""
+        assert resultado["ListaRTsComDoc"] == ""
+
+    def test_rt_anterior_de_coluna_direta(self):
+        reg = {"RTAnterior": "0000999-88.2024.5.10.0001"}
+        resultado = derivar_variaveis(reg)
+        assert resultado["RTAnterior"] == "0000999-88.2024.5.10.0001"
+
+    def test_rt_anterior_de_variante_com_underscore(self):
+        reg = {"RT_Anterior": "0000999-88.2024.5.10.0001"}
+        resultado = derivar_variaveis(reg)
+        assert resultado["RTAnterior"] == "0000999-88.2024.5.10.0001"
+
+    def test_rt_anterior_vazio_quando_sem_coluna(self):
+        reg = {"Nome": "João"}
+        resultado = derivar_variaveis(reg)
+        assert resultado["RTAnterior"] == ""
+
+    def test_preserva_variaveis_originais(self):
+        reg = {"Nome": "João", "CPF": "123.456.789-00", "Genero": "M"}
+        resultado = derivar_variaveis(reg)
+        assert resultado["Nome"] == "João"
+        assert resultado["CPF"] == "123.456.789-00"
+        assert resultado["Genero"] == "M"
+
+    def test_cenario_completo_cliente_com_tudo(self):
+        reg = {
+            "Nome": "Genebaldo",
+            "Genero": "M",
+            "PreservacaoSP": "3/2013,R$6.622,33;5/2013,R$8.419,03",
+            "RT_Indenizatoria": "0000001-61.2022.5.10.0017",
+            "RTAnterior": "0000999-88.2024.5.10.0001",
+        }
+        resultado = derivar_variaveis(reg)
+        assert "março de 2013" in resultado["ListaPreservacoes"]
+        assert "maio de 2013" in resultado["ListaPreservacoes"]
+        assert resultado["ListaRTs"] == "0000001-61.2022.5.10.0017"
+        assert resultado["RTAnterior"] == "0000999-88.2024.5.10.0001"
+        assert "DataPeticao" in resultado
+
+    def test_cenario_cliente_sem_preservacao(self):
+        reg = {
+            "Nome": "Roseli",
+            "Genero": "F",
+            "PreservacaoSP": "",
+            "RT_Indenizatoria": "0000001-61.2022.5.10.0017",
+        }
+        resultado = derivar_variaveis(reg)
+        assert resultado["ListaPreservacoes"] == ""
+        assert resultado["ListaRTs"] == "0000001-61.2022.5.10.0017"
+
+    def test_cenario_denilson_duas_rts(self):
+        reg = {
+            "Nome": "Denilson",
+            "Genero": "M",
+            "RT_Indenizatoria": (
+                "0000001-61.2022.5.10.0017;0000443-05.2023.5.10.0013"
+            ),
+        }
+        resultado = derivar_variaveis(reg)
+        assert resultado["ListaRTs"] == (
+            "0000001-61.2022.5.10.0017 e nº 0000443-05.2023.5.10.0013"
+        )
+        assert resultado["ListaRTsComDoc"] == (
+            "0000001-61.2022.5.10.0017 e nº 0000443-05.2023.5.10.0013"
+        )

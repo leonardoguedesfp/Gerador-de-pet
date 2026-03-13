@@ -213,3 +213,54 @@ def humanizar_registro(registro: dict[str, str]) -> dict[str, str]:
         resultado[chave] = valor
 
     return resultado
+
+
+# ---------------------------------------------------------------------------
+# Derivação de variáveis (colunas da planilha → variáveis do modelo Word)
+# ---------------------------------------------------------------------------
+
+def derivar_variaveis(
+    registro: dict[str, str],
+    formato_data: str = FORMATO_DATA,
+) -> dict[str, str]:
+    """
+    Cria variáveis derivadas a partir das colunas brutas da planilha
+    e aplica formatação humanizada em todos os valores.
+
+    Variáveis geradas automaticamente:
+    - {DataPeticao}         ← data atual
+    - {ListaPreservacoes}   ← PreservacaoSP formatado por extenso
+    - {ListaRTs}            ← RT_Indenizatoria com conjunção
+    - {ListaRTsComDoc}      ← RT_Indenizatoria com conjunção (para contexto documental)
+    - {RTAnterior}          ← RT_Anterior ou RTAnterior
+
+    O registro original é preservado; as variáveis derivadas são ADICIONADAS.
+    """
+    resultado = dict(registro)
+
+    # {DataPeticao}: data atual formatada
+    resultado.setdefault("DataPeticao", datetime.now().strftime(formato_data))
+
+    # {ListaPreservacoes}: de PreservacaoSP, humanizado
+    preservacao = registro.get("PreservacaoSP", "").strip()
+    resultado["ListaPreservacoes"] = (
+        formatar_preservacoes(preservacao) if preservacao else ""
+    )
+
+    # {ListaRTs} e {ListaRTsComDoc}: de RT_Indenizatoria, com conjunção
+    rt_ind = registro.get("RT_Indenizatoria", "").strip()
+    resultado["ListaRTs"] = formatar_lista_processos(rt_ind) if rt_ind else ""
+    resultado["ListaRTsComDoc"] = formatar_lista_processos(rt_ind) if rt_ind else ""
+
+    # {RTAnterior}: busca em variantes comuns de nome de coluna
+    if not resultado.get("RTAnterior", "").strip():
+        for col in ("RT_Anterior", "RtAnterior", "Rt_Anterior"):
+            val = registro.get(col, "").strip()
+            if val:
+                resultado["RTAnterior"] = val
+                break
+        else:
+            resultado.setdefault("RTAnterior", "")
+
+    # Humanizar todos os valores (formata padrões brutos restantes)
+    return humanizar_registro(resultado)
