@@ -1,8 +1,30 @@
 """Funções de formatação de valores (datas, moeda, etc.)."""
 
+import re
 from datetime import datetime, date, timedelta
 
 FORMATO_DATA = "%d/%m/%Y"
+
+MESES_PT = {
+    1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
+    5: "maio", 6: "junho", 7: "julho", 8: "agosto",
+    9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro",
+}
+
+# Padrão: MM/AAAA,R$X.XXX,XX (uma ou mais entradas separadas por ;)
+_PADRAO_PRESERVACAO = re.compile(
+    r'^\d{1,2}/\d{4},\s*R\$\s*[\d.,]+'
+    r'(?:;\s*\d{1,2}/\d{4},\s*R\$\s*[\d.,]+)*$'
+)
+
+_PADRAO_ENTRADA_PRESERVACAO = re.compile(
+    r'(\d{1,2})/(\d{4}),\s*(R\$\s*[\d.,]+)'
+)
+
+# Padrão CNJ: NNNNNNN-DD.AAAA.J.TT.OOOO
+_PADRAO_CNJ = re.compile(
+    r'^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$'
+)
 
 _TERMOS_DATA = frozenset([
     "data", "date", "nascimento", "admissao", "admissão",
@@ -92,3 +114,102 @@ def formatar_valor_celula(
     if valor is None:
         return ""
     return str(valor).strip()
+
+
+# ---------------------------------------------------------------------------
+# Formatação jurídica (humanização de dados brutos)
+# ---------------------------------------------------------------------------
+
+def _juntar_com_e(itens: list[str]) -> str:
+    """Junta itens com vírgula e 'e' antes do último."""
+    if not itens:
+        return ""
+    if len(itens) == 1:
+        return itens[0]
+    return ", ".join(itens[:-1]) + " e " + itens[-1]
+
+
+def formatar_preservacoes(valor: str) -> str:
+    """
+    Converte 'MM/AAAA,R$X.XXX,XX;...' em texto jurídico.
+
+    Exemplo:
+      '3/2013,R$6.622,33;5/2013,R$8.419,03'
+      → 'em março de 2013, no valor de R$ 6.622,33 e em maio de 2013,
+         no valor de R$ 8.419,03'
+    """
+    if not valor:
+        return valor
+
+    entradas = [e.strip() for e in valor.split(";") if e.strip()]
+    partes = []
+    for entrada in entradas:
+        match = _PADRAO_ENTRADA_PRESERVACAO.match(entrada)
+        if match:
+            mes = int(match.group(1))
+            ano = match.group(2)
+            val_mon = re.sub(r'R\$\s*', 'R$ ', match.group(3))
+            nome_mes = MESES_PT.get(mes, str(mes))
+            partes.append(f"em {nome_mes} de {ano}, no valor de {val_mon}")
+        else:
+            partes.append(entrada)
+
+    return _juntar_com_e(partes)
+
+
+def formatar_lista_processos(valor: str) -> str:
+    """
+    Converte números de processo separados por ';' em texto com conjunção.
+
+    Exemplo:
+      '0000001-61.2022.5.10.0017;0000443-05.2023.5.10.0013'
+      → '0000001-61.2022.5.10.0017 e nº 0000443-05.2023.5.10.0013'
+    """
+    if not valor or ";" not in valor:
+        return valor
+
+    partes = [p.strip() for p in valor.split(";") if p.strip()]
+
+    if not all(_PADRAO_CNJ.match(p) for p in partes):
+        return valor
+
+    if len(partes) == 1:
+        return partes[0]
+    if len(partes) == 2:
+        return f"{partes[0]} e nº {partes[1]}"
+
+    return ", nº ".join(partes[:-1]) + " e nº " + partes[-1]
+
+
+def humanizar_registro(registro: dict[str, str]) -> dict[str, str]:
+    """
+    Aplica formatação humanizada aos valores do registro para uso
+    em petições jurídicas.
+
+    Detecta automaticamente:
+    - Preservações no formato MM/AAAA,R$X.XXX,XX
+    - Números de processo CNJ separados por ;
+    """
+    resultado = {}
+    for chave, valor in registro.items():
+        if not isinstance(valor, str) or not valor.strip():
+            resultado[chave] = valor
+            continue
+
+        valor_strip = valor.strip()
+
+        # Preservações: MM/AAAA,R$X.XXX,XX;...
+        if _PADRAO_PRESERVACAO.match(valor_strip):
+            resultado[chave] = formatar_preservacoes(valor_strip)
+            continue
+
+        # Múltiplos números de processo CNJ separados por ;
+        if ";" in valor_strip:
+            partes = [p.strip() for p in valor_strip.split(";") if p.strip()]
+            if all(_PADRAO_CNJ.match(p) for p in partes):
+                resultado[chave] = formatar_lista_processos(valor_strip)
+                continue
+
+        resultado[chave] = valor
+
+    return resultado

@@ -7,7 +7,7 @@ from pathlib import Path
 from .config import Config
 from .documento import gerar_peticao, nome_arquivo_seguro
 from .exceptions import ArquivoNaoEncontradoError, PlanilhaInvalidaError
-from .formatacao import detectar_coluna_data
+from .formatacao import detectar_coluna_data, humanizar_registro
 from .logger import Logger
 from .planilha import ler_planilha
 from .relatorio import gerar_relatorio_conferencia
@@ -78,7 +78,8 @@ def _processar_registro(
         return resultado
 
     try:
-        gerar_peticao(modelo, registro, caminho_saida)
+        registro_formatado = humanizar_registro(registro)
+        gerar_peticao(modelo, registro_formatado, caminho_saida)
         log.info(f"  [{i:03d}] OK: {nome_arq}")
         resultado["status"] = "OK"
     except Exception as e:
