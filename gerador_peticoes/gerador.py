@@ -1,7 +1,9 @@
 """Lógica principal de geração de petições."""
 
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 
 from .config import Config
@@ -11,6 +13,74 @@ from .formatacao import detectar_coluna_data
 from .logger import Logger
 from .planilha import ler_planilha
 from .relatorio import gerar_relatorio_conferencia
+
+_MESES_PT = [
+    "", "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+]
+
+
+def _data_por_extenso(dt: datetime | None = None) -> str:
+    """Retorna data no formato 'dd de mês de aaaa'."""
+    dt = dt or datetime.now()
+    return f"{dt.day:02d} de {_MESES_PT[dt.month]} de {dt.year}"
+
+
+def _formatar_rts_com_doc(valor_rts: str) -> str:
+    """
+    Formata lista de RTs com referência a documento anexo.
+
+    Cada RT recebe um número de documento sequencial começando em 02.
+    Ex: 'nº 0001663-59.2014.5.10.0011 (documento 02)'
+    """
+    if not valor_rts or not valor_rts.strip():
+        return ""
+    # Separa RTs por vírgula, ponto-e-vírgula ou quebra de linha
+    rts = re.split(r'[,;\n]+', valor_rts.strip())
+    rts = [rt.strip() for rt in rts if rt.strip()]
+    partes = []
+    for idx, rt in enumerate(rts):
+        num_doc = idx + 2  # Começa no documento 02
+        # Remove 'nº' se já existir no valor original
+        rt_limpo = re.sub(r'^n[ºo°]\.?\s*', '', rt.strip())
+        partes.append(f"nº {rt_limpo} (documento {num_doc:02d})")
+    return "; ".join(partes)
+
+
+def _preparar_variaveis(registro: dict[str, str]) -> dict[str, str]:
+    """
+    Enriquece o registro com mapeamento de placeholders e valores constantes.
+
+    Grupo A — mapeamento de colunas da planilha para placeholders do modelo:
+        {RTAnterior}         ← RT_Indenizatoria
+        {ListaRTs}           ← RT_VerbasTrabalhistas
+        {ListaRTsComDoc}     ← RT_VerbasTrabalhistas formatada com docs
+        {ListaPreservacoes}  ← PreservacaoSP
+
+    Grupo B — valores constantes:
+        {DataInicioPrescricao}, {NumProtestoJudicial}, {DataProtestoJudicial},
+        {DataFimPrescricao}, {ValorEstimado}, {ValorEstimadoExtenso}, {DataPeticao}
+    """
+    variaveis = dict(registro)
+
+    # Grupo A — mapeamento de colunas
+    variaveis["RTAnterior"] = registro.get("RT_Indenizatoria", "")
+    variaveis["ListaRTs"] = registro.get("RT_VerbasTrabalhistas", "")
+    variaveis["ListaRTsComDoc"] = _formatar_rts_com_doc(
+        registro.get("RT_VerbasTrabalhistas", "")
+    )
+    variaveis["ListaPreservacoes"] = registro.get("PreservacaoSP", "")
+
+    # Grupo B — valores constantes
+    variaveis["DataInicioPrescricao"] = "16/08/2018"
+    variaveis["NumProtestoJudicial"] = "0021176-05.2024.5.10.0000"
+    variaveis["DataProtestoJudicial"] = "16/08/2024"
+    variaveis["DataFimPrescricao"] = "16/08/2029"
+    variaveis["ValorEstimado"] = "R$ 100.000,00"
+    variaveis["ValorEstimadoExtenso"] = "cem mil reais"
+    variaveis["DataPeticao"] = _data_por_extenso()
+
+    return variaveis
 
 
 def _verificar_entrada(cfg: Config) -> None:
@@ -78,7 +148,9 @@ def _processar_registro(
         return resultado
 
     try:
-        gerar_peticao(modelo, registro, caminho_saida)
+        variaveis = _preparar_variaveis(registro)
+        remover_secao_42 = not variaveis.get("ListaPreservacoes", "").strip()
+        gerar_peticao(modelo, variaveis, caminho_saida, remover_secao_42)
         log.info(f"  [{i:03d}] OK: {nome_arq}")
         resultado["status"] = "OK"
     except Exception as e:

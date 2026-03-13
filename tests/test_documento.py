@@ -39,7 +39,7 @@ class TestGerarPeticao:
         assert "123.456.789-00" in texto
         assert "{Nome}" not in texto
 
-    def test_variavel_nao_encontrada_permanece(self, tmp_path):
+    def test_variavel_nao_encontrada_e_removida(self, tmp_path):
         modelo = tmp_path / "modelo.docx"
         doc = Document()
         doc.add_paragraph("Valor: {ValorInexistente}")
@@ -49,4 +49,6 @@ class TestGerarPeticao:
         gerar_peticao(modelo, {"Nome": "Test"}, saida)
 
         doc_resultado = Document(str(saida))
-        assert "{ValorInexistente}" in doc_resultado.paragraphs[0].text
+        texto = doc_resultado.paragraphs[0].text
+        assert "{ValorInexistente}" not in texto
+        assert "Valor:" in texto
