@@ -11,6 +11,7 @@ from .formatacao import detectar_coluna_data
 from .logger import Logger
 from .planilha import ler_planilha
 from .relatorio import gerar_relatorio_conferencia
+from .variaveis import computar_variaveis_derivadas
 
 
 def _verificar_entrada(cfg: Config) -> None:
@@ -78,7 +79,8 @@ def _processar_registro(
         return resultado
 
     try:
-        gerar_peticao(modelo, registro, caminho_saida)
+        variaveis = computar_variaveis_derivadas(registro)
+        gerar_peticao(modelo, variaveis, caminho_saida)
         log.info(f"  [{i:03d}] OK: {nome_arq}")
         resultado["status"] = "OK"
     except Exception as e:
