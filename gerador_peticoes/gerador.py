@@ -7,7 +7,7 @@ from pathlib import Path
 from .config import Config
 from .documento import gerar_peticao, nome_arquivo_seguro
 from .exceptions import ArquivoNaoEncontradoError, PlanilhaInvalidaError
-from .formatacao import detectar_coluna_data
+from .formatacao import detectar_coluna_data, gerar_data_peticao
 from .logger import Logger
 from .planilha import ler_planilha
 from .relatorio import gerar_relatorio_conferencia
@@ -76,6 +76,8 @@ def _processar_registro(
         resultado["status"] = "OK"
         resultado["observacao"] = "Simulação (dry-run)"
         return resultado
+
+    registro["DataPeticao"] = gerar_data_peticao()
 
     try:
         gerar_peticao(modelo, registro, caminho_saida)

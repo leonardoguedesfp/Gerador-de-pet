@@ -14,6 +14,20 @@ _TERMOS_DATA = frozenset([
 ])
 
 
+_MESES_PT = [
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+]
+
+
+def gerar_data_peticao(dt: date | None = None) -> str:
+    """Retorna a data no formato 'Brasília, 13 de março de 2026.'."""
+    if dt is None:
+        dt = date.today()
+    mes = _MESES_PT[dt.month - 1]
+    return f"Brasília, {dt.day} de {mes} de {dt.year}."
+
+
 def formatar_data(valor, formato: str = FORMATO_DATA) -> str:
     """
     Converte datas do Excel para o formato dd/mm/aaaa.

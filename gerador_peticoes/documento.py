@@ -62,6 +62,35 @@ def substituir_variaveis_no_documento(
                             _substituir_em_paragrafo(paragrafo, variaveis)
 
 
+def _remover_paragrafo(paragrafo) -> None:
+    """Remove um parágrafo do documento Word."""
+    p = paragrafo._element
+    p.getparent().remove(p)
+
+
+def _remover_item_4_2(doc: Document) -> None:
+    """Remove parágrafos pertencentes ao item 4.2 do documento."""
+    dentro_item = False
+    paragrafos_remover = []
+
+    for paragrafo in doc.paragraphs:
+        texto = paragrafo.text.strip()
+
+        if re.match(r'^4\.2[\s.\-–—)]', texto):
+            dentro_item = True
+            paragrafos_remover.append(paragrafo)
+            continue
+
+        if dentro_item:
+            if re.match(r'^[0-9]+(\.[0-9]+)*[\s.\-–—)]', texto):
+                dentro_item = False
+            else:
+                paragrafos_remover.append(paragrafo)
+
+    for p in paragrafos_remover:
+        _remover_paragrafo(p)
+
+
 def gerar_peticao(
     modelo_path: Path,
     variaveis: dict[str, str],
@@ -70,6 +99,10 @@ def gerar_peticao(
     """Gera uma petição personalizada a partir de um modelo .docx."""
     doc = Document(str(modelo_path))
     substituir_variaveis_no_documento(doc, variaveis)
+
+    if not variaveis.get("PreservacaoSP", "").strip():
+        _remover_item_4_2(doc)
+
     saida_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(saida_path))
 
