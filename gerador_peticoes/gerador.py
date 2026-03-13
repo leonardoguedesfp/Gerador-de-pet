@@ -72,7 +72,7 @@ def _processar_registro(
     resultado["arquivo"] = nome_arq
 
     if cfg.dry_run:
-        log.info(f"  [{i:03d}] DRY-RUN: {nome_arq}")
+        log.info(f"  [{i:03d}] SIMULAÇÃO: {nome_arq}")
         resultado["status"] = "OK"
         resultado["observacao"] = "Simulação (dry-run)"
         return resultado
